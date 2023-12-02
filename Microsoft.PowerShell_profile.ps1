@@ -14,25 +14,55 @@
 ### more information about execution policies, run Get-Help about_Execution_Policies.
 
 #check for updates
-try{
-    $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-    $oldhash = Get-FileHash $PROFILE
-    Invoke-RestMethod $url -OutFile "$env:temp/Microsoft.PowerShell_profile.ps1"
-    $newhash = Get-FileHash "$env:temp/Microsoft.PowerShell_profile.ps1"
-    if ($newhash -ne $oldhash) {
-        Get-Content "$env:temp/Microsoft.PowerShell_profile.ps1" | Set-Content $PROFILE
-        . $PROFILE
-        return
+function Update-Profile {
+    try {
+        $url = "https://raw.githubusercontent.com/ChrisTitusTech/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+        $oldhash = Get-FileHash $PROFILE -ErrorAction Stop
+        $tempScript = "$env:temp\Microsoft.PowerShell_profile.ps1"
+        Invoke-RestMethod $url -OutFile $tempScript
+        $newhash = Get-FileHash $tempScript -ErrorAction Stop
+
+        if ($newhash.Hash -ne $oldhash.Hash) {
+            Write-Host "Updating profile..."
+            Get-Content $tempScript | Set-Content $PROFILE
+            . $PROFILE
+            Write-Host "Profile updated successfully."
+        }
+        else {
+            Write-Host "Profile is already up-to-date."
+        }
+    }
+    catch {
+        Write-Error "Unable to check for profile updates: $_"
+    }
+    finally {
+        Remove-Item $tempScript -ErrorAction SilentlyContinue
     }
 }
-catch {
-    Write-Error "unable to check for `$profile updates"
+
+# Check for updates when the profile is loaded
+Update-Profile
+
+# Ensure variables are defined before removing
+if (Test-Variable -Name newhash) {
+    Remove-Variable -Name newhash
 }
-Remove-Variable @("newhash", "oldhash", "url")
-Remove-Item  "$env:temp/Microsoft.PowerShell_profile.ps1"
+
+if (Test-Variable -Name oldhash) {
+    Remove-Variable -Name oldhash
+}
+
+if (Test-Variable -Name url) {
+    Remove-Variable -Name url
+}
 
 # Import Terminal Icons
-Import-Module -Name Terminal-Icons
+try {
+    Import-Module -Name Terminal-Icons -ErrorAction Stop
+}
+catch {
+    Write-Error "Failed to import 'Terminal-Icons' module: $_"
+}
 
 # Find out if the current user identity is elevated (has admin rights)
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
